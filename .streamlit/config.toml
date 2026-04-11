@@ -1,0 +1,24 @@
+[theme]
+# The primary color for buttons, radio selections, and accents (Clinical Navy)
+primaryColor = "#004a7c"
+
+# The main background of the app (Soft Gray/White)
+backgroundColor = "#f8f9fa"
+
+# The background for the sidebar and input boxes (Pure White)
+secondaryBackgroundColor = "#ffffff"
+
+# The text color for maximum readability (Deep Slate)
+textColor = "#31333F"
+
+# Clinical-standard font
+font = "sans serif"
+
+[server]
+# Optimizes performance for agentic streaming
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Removes the "Made with Streamlit" footer for a more professional feel
+gatherUsageStats = false
