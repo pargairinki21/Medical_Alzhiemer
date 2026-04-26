@@ -21,7 +21,6 @@ from retriever import get_retriever
 from chain import create_rag_chain
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
-from database import db
 
 # Initialize FastAPI app
 app = FastAPI(title="Alzheimer's Clinical RAG API", version="1.0.0")
@@ -38,6 +37,7 @@ app.add_middleware(
 # Global variables
 rag_chain = None
 vision_model = None
+db = None
 
 
 class QueryRequest(BaseModel):
@@ -76,24 +76,39 @@ def setup_pipeline():
     Wire all modules together and return the ready chain.
     Same logic as main.py but for API use.
     """
-    global rag_chain, vision_model
+    global rag_chain, vision_model, db
+    
+    # Step 0 — Initialize database
+    try:
+        from database import Database
+        db = Database()
+        print("✅ Database initialized")
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        print("🔄 Authentication will be disabled")
+        db = None
     
     # Step 1 — Load PDFs only if DB doesn't exist yet
-    db_path = config.CHROMA_DB_DIR
-    if not os.path.exists(db_path) or not os.listdir(db_path):
-        print("📄 Loading PDFs and creating vector store...")
-        chunks = load_and_split(config.PDF_FOLDER)
-        create_vector_store(chunks)
-    else:
-        print("✅ Vector DB already exists, skipping PDF ingestion")
-    
-    # Step 2 — Set up retriever
-    vector_store = create_vector_store(None)
-    retriever = get_retriever(vector_store)
-    
-    # Step 3 — Create RAG chain
-    rag_chain = create_rag_chain(retriever)
-    print("✅ RAG pipeline ready")
+    try:
+        db_path = config.CHROMA_DB_DIR
+        if not os.path.exists(db_path) or not os.listdir(db_path):
+            print("📄 Loading PDFs and creating vector store...")
+            chunks = load_and_split(config.PDF_FOLDER)
+            create_vector_store(chunks)
+        else:
+            print("✅ Vector DB already exists, skipping PDF ingestion")
+        
+        # Step 2 — Set up retriever
+        vector_store = create_vector_store(None)
+        retriever = get_retriever(vector_store)
+        
+        # Step 3 — Create RAG chain
+        rag_chain = create_rag_chain(retriever)
+        print("✅ RAG pipeline ready")
+    except Exception as e:
+        print(f"⚠️ RAG pipeline setup failed: {e}")
+        print("🔄 Chat functionality will be disabled")
+        rag_chain = None
     
     # Step 4 — Initialize Gemini Vision model
     try:
@@ -103,6 +118,7 @@ def setup_pipeline():
     except Exception as e:
         print(f"⚠️ Failed to initialize Gemini Vision: {e}")
         print("🔄 Image analysis will be disabled")
+        vision_model = None
 
 
 @app.on_event("startup")
