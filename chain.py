@@ -27,8 +27,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_community.tools import TavilySearchResults
+from langchain_core.runnables import RunnableLambda
 
 import config
+import os
 
 
 
@@ -41,15 +44,14 @@ You have access to authoritative clinical literature including:
 - Alzheimer's Association Facts & Figures reports
 - Cognitive assessment guidelines (MMSE, MoCA, CDR, GDS)
 - Clinical research on biomarkers and staging
+- Web search results for additional clinical information
 
 Your behaviour rules:
-1. ALWAYS base your answer on the retrieved context below
-2. ALWAYS cite which source document and page you are referencing
+1. Base your answer on the retrieved context below (from PDFs or web search)
+2. ALWAYS cite which source you are referencing (PDF or web)
 3. NEVER give a definitive medical diagnosis — provide clinical analysis only
 4. ALWAYS end with a recommendation to consult a neurologist
-5. If the context does not contain enough information, say:
-   "This is outside my current knowledge base. Please consult clinical guidelines."
-6. Be precise about scoring thresholds — never round or estimate scores
+5. Be precise about scoring thresholds — never round or estimate scores
 
 Clinical scales you should recognise:
 - MMSE  : 30=normal, 24-30=possible MCI, 18-23=mild AD, 10-17=moderate AD, <10=severe AD
@@ -116,6 +118,8 @@ def create_rag_chain(retriever: VectorStoreRetriever):
                  ──→ RunnablePassthrough ──────────→ {question}
                  Both ──→ prompt ──→ Gemini ──→ StrOutputParser
 
+    If PDF retrieval fails or returns no relevant results, falls back to web search.
+
     Args:
         retriever: MMR retriever from retriever.get_retriever()
 
@@ -137,12 +141,41 @@ def create_rag_chain(retriever: VectorStoreRetriever):
         ("human",  HUMAN_PROMPT),
     ])
 
-    
-    chain = (
+    # ── Web search fallback ───────────────────────────────────
+    def search_web_if_needed(inputs):
+        """Fallback to web search if PDF retrieval is insufficient"""
+        question = inputs["question"]
+        context = inputs.get("context", "")
+        
+        # If context is empty or very short, try web search
+        if not context or len(context) < 100:
+            try:
+                search = TavilySearchResults(max_results=3)
+                search_results = search.invoke(question)
+                
+                # Format web search results
+                web_context = "\n\n".join([
+                    f"[Web Source {i+1}]\n{result.get('content', '')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                return {
+                    "context": web_context,
+                    "question": question
+                }
+            except Exception as e:
+                print(f"Web search failed: {e}")
+                return inputs
+        
+        return inputs
+
+    # ── Main chain ─────────────────────────────────────────────
+    rag_chain = (
         {
             "context":  retriever | _format_docs,  
             "question": RunnablePassthrough(),      
         }
+        | RunnableLambda(search_web_if_needed)
         | prompt
         | llm
         | StrOutputParser()
@@ -151,6 +184,7 @@ def create_rag_chain(retriever: VectorStoreRetriever):
     print(f" RAG Chain ready:")
     print(f"   LLM         : {config.GEMINI_MODEL}")
     print(f"   Temperature : {config.GEMINI_TEMPERATURE}")
-    print(f"   Max tokens  : {config.GEMINI_MAX_TOKENS}\n")
+    print(f"   Max tokens  : {config.GEMINI_MAX_TOKENS}")
+    print(f"   Web fallback: Enabled\n")
 
-    return chain
+    return rag_chain

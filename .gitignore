@@ -24,7 +24,6 @@ alzheimer_pdfs/*.pdf
 .DS_Store
 Thumbs.db
 
-
 # Ignore databases & embeddings
 *.bin
 *.sqlite3
@@ -43,3 +42,6 @@ __pycache__/
 
 # Env
 .env
+
+# Frontend deployment
+frontend/.vercel/

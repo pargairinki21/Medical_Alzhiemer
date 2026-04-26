@@ -1,19 +1,18 @@
 # --- Verified Agentic Stack (2026 Stable) ---
 google-adk==1.29.0
 google-generativeai>=0.8.0
-opentelemetry-api==1.25.0
-opentelemetry-sdk==1.25.0
 
 
 streamlit==1.55.0
 streamlit-extras
 
 
+# --- LangChain & Vector DB ---
 langchain>=0.4.0
 langchain-community>=0.4.0
 langchain-google-genai==4.2.1
-langchain-chroma>=0.2.0
-langchain-text-splitters
+chromadb>=0.4.0
+tavily-python
 chromadb==1.5.7
 
 
@@ -26,3 +25,15 @@ pillow
 
 python-dotenv
 asyncio
+
+# --- FastAPI Server ---
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+google-generativeai>=0.3.0
+
+# --- Image Processing ---
+pillow>=10.0.0
+
+# --- Database ---
+pymongo>=4.0.0

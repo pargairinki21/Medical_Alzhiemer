@@ -1,9 +1,0 @@
-.gcloudignore
-.git
-.gitignore
-__pycache__/
-.venv/
-env/
-venv/
-.streamlit/config.toml
-*.pyc

@@ -26,6 +26,11 @@ load_dotenv()
 
 
 GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
+MONGO_DB_URL: str = os.getenv("MONGO_DB_URL")
+
+# Email settings (Gmail)
+EMAIL_ADDRESS: str = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD: str = os.getenv("EMAIL_PASSWORD")
 
 
 PDF_FOLDER: str = "alzheimer_pdfs"
