@@ -28,7 +28,7 @@ app = FastAPI(title="Alzheimer's Clinical RAG API", version="1.0.0")
 # Add CORS middleware (allow frontend from Vercel)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your Vercel domain
+    allow_origins=["https://medical-alzhiemer.vercel.app", "http://localhost:3000"],  # Production and local
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -316,7 +316,17 @@ async def analyze_patient(request: AnalysisRequest):
         query_text = ". ".join(query_parts) if query_parts else "Please provide patient data for analysis"
         
         try:
-            response_text = rag_chain.invoke(query_text)
+            if rag_chain:
+                response_text = rag_chain.invoke(query_text)
+            else:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                llm = ChatGoogleGenerativeAI(
+                    model=config.GEMINI_MODEL,
+                    temperature=config.GEMINI_TEMPERATURE,
+                    google_api_key=config.GOOGLE_API_KEY,
+                )
+                response = llm.invoke(query_text)
+                response_text = response.content
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing analysis: {str(e)}")
         
