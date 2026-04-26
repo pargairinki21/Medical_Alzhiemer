@@ -28,7 +28,7 @@ app = FastAPI(title="Alzheimer's Clinical RAG API", version="1.0.0")
 # Add CORS middleware (allow frontend from Vercel)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now (will restrict in production)
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -145,13 +145,24 @@ async def query_rag(request: QueryRequest):
     Returns:
         QueryResponse with the AI response and sources
     """
-    if not rag_chain:
-        raise HTTPException(status_code=503, detail="RAG pipeline not initialized")
-    
     if not request.query or not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     try:
+        if not rag_chain:
+            # Fallback to direct Gemini if RAG is not available
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(
+                model=config.GEMINI_MODEL,
+                temperature=config.GEMINI_TEMPERATURE,
+                google_api_key=config.GOOGLE_API_KEY,
+            )
+            response = llm.invoke(request.query)
+            return QueryResponse(
+                response=response.content,
+                sources=[]
+            )
+        
         # Invoke the RAG chain
         response = rag_chain.invoke(request.query)
         
@@ -187,8 +198,6 @@ async def analyze_patient(request: AnalysisRequest):
     Returns:
         QueryResponse with clinical analysis
     """
-    if not rag_chain:
-        raise HTTPException(status_code=503, detail="RAG pipeline not initialized")
     
     # Build the query from form data
     query_parts = []
@@ -277,8 +286,18 @@ async def analyze_patient(request: AnalysisRequest):
                 """
                 
                 try:
-                    rag_response = rag_chain.invoke(clinical_query)
-                    response_text += rag_response
+                    if rag_chain:
+                        rag_response = rag_chain.invoke(clinical_query)
+                        response_text += rag_response
+                    else:
+                        from langchain_google_genai import ChatGoogleGenerativeAI
+                        llm = ChatGoogleGenerativeAI(
+                            model=config.GEMINI_MODEL,
+                            temperature=config.GEMINI_TEMPERATURE,
+                            google_api_key=config.GOOGLE_API_KEY,
+                        )
+                        rag_response = llm.invoke(clinical_query)
+                        response_text += rag_response.content
                 except:
                     response_text += "Clinical guidelines analysis unavailable."
             else:
@@ -305,7 +324,17 @@ async def analyze_patient(request: AnalysisRequest):
             """
             
             try:
-                response_text = rag_chain.invoke(query_text)
+                if rag_chain:
+                    response_text = rag_chain.invoke(query_text)
+                else:
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    llm = ChatGoogleGenerativeAI(
+                        model=config.GEMINI_MODEL,
+                        temperature=config.GEMINI_TEMPERATURE,
+                        google_api_key=config.GOOGLE_API_KEY,
+                    )
+                    response = llm.invoke(query_text)
+                    response_text = response.content
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error processing analysis: {str(e)}")
             
