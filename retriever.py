@@ -23,7 +23,7 @@ All tuning values (TOP_K, FETCH_K, LAMBDA) live in config.py.
 ─────────────────────────────────────────────────────────────
 """
 
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain_core.vectorstores import VectorStoreRetriever
 
 import config
