@@ -28,7 +28,7 @@ app = FastAPI(title="Alzheimer's Clinical RAG API", version="1.0.0")
 # Add CORS middleware (allow frontend from Vercel)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://medical-alzhiemer.vercel.app", "http://localhost:3000"],  # Production and local
+    allow_origins=["*"],  # Allow all origins for now (will restrict in production)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
