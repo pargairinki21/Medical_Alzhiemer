@@ -9,6 +9,7 @@ const API_BASE_URL = 'https://medical-alzhiemer.onrender.com';
 
 // ── Authentication ──────────────────────────────────────
 let selectedGender = null;
+let authMode = 'signup'; // 'signup' or 'login'
 let userData = {
   email: '',
   name: '',
@@ -19,47 +20,108 @@ function selectGender(gender) {
   console.log('selectGender called with:', gender);
   selectedGender = gender;
   userData.gender = gender;
-  
+
   document.querySelectorAll('.gender-btn').forEach(btn => {
     btn.classList.remove('selected');
-    if (btn.dataset.gender === gender) {
-      btn.classList.add('selected');
-      console.log('Added selected class to:', btn);
-    }
   });
+
+  const selectedBtn = document.querySelector(`.gender-btn[data-gender="${gender}"]`);
+  if (selectedBtn) {
+    selectedBtn.classList.add('selected');
+  }
+}
+
+function toggleAuthMode(mode) {
+  authMode = mode;
+  const signupToggle = document.getElementById('signup-toggle');
+  const loginToggle = document.getElementById('login-toggle');
+  const nameGroup = document.getElementById('name-group');
+  const genderGroup = document.getElementById('gender-group');
+  const sendOtpBtn = document.getElementById('send-otp-btn');
+
+  if (mode === 'signup') {
+    signupToggle.classList.add('active');
+    loginToggle.classList.remove('active');
+    nameGroup.style.display = 'block';
+    genderGroup.style.display = 'block';
+    sendOtpBtn.textContent = 'Send OTP';
+  } else {
+    loginToggle.classList.add('active');
+    signupToggle.classList.remove('active');
+    nameGroup.style.display = 'none';
+    genderGroup.style.display = 'none';
+    sendOtpBtn.textContent = 'Login';
+  }
 }
 
 async function sendOTP() {
   const email = document.getElementById('email-input').value;
   const name = document.getElementById('name-input').value;
-  
-  if (!email || !name || !selectedGender) {
+
+  if (!email) {
+    alert('Please enter your email');
+    return;
+  }
+
+  if (authMode === 'signup' && (!name || !selectedGender)) {
     alert('Please fill in all fields and select a gender');
     return;
   }
-  
+
   userData.email = email;
-  userData.name = name;
-  userData.gender = selectedGender;
-  
+  if (authMode === 'signup') {
+    userData.name = name;
+    userData.gender = selectedGender;
+  }
+
+  // If login mode, call direct login endpoint
+  if (authMode === 'login') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update user data from server
+        userData.name = data.user.name;
+        userData.gender = data.user.gender;
+        userData.email = data.user.email;
+
+        // Show welcome animation
+        showWelcomeAnimation();
+      } else {
+        alert(data.message || 'Login failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      alert('Error during login. Please try again.');
+    }
+    return;
+  }
+
+  // Signup mode - send OTP
   try {
     const response = await fetch(`${API_BASE_URL}/api/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         email: email,
         name: name,
         gender: selectedGender
       })
     });
-    
+
     const data = await response.json();
-    
+
     if (data.success) {
       // Show OTP form
       document.getElementById('auth-form').style.display = 'none';
       document.getElementById('otp-form').style.display = 'block';
-      
+
       // For demo: auto-fill the OTP (remove in production)
       document.getElementById('otp-input').value = data.otp;
     } else {

@@ -71,6 +71,10 @@ class OTPVerifyRequest(BaseModel):
     otp: str
 
 
+class LoginRequest(BaseModel):
+    email: str
+
+
 def setup_pipeline():
     """
     Wire all modules together and return the ready chain.
@@ -394,11 +398,11 @@ async def verify_otp(request: OTPVerifyRequest):
     """
     try:
         is_valid = db.verify_otp(request.email, request.otp)
-        
+
         if is_valid:
             # Get user data
             user = db.get_user(request.email)
-            
+
             return JSONResponse({
                 "success": True,
                 "message": "OTP verified successfully",
@@ -415,6 +419,37 @@ async def verify_otp(request: OTPVerifyRequest):
             }, status_code=400)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error verifying OTP: {str(e)}")
+
+
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    """
+    Direct login for existing users (no OTP required)
+    """
+    try:
+        if not db:
+            raise HTTPException(status_code=503, detail="Database not available")
+
+        # Check if user exists
+        user = db.get_user(request.email)
+
+        if user:
+            return JSONResponse({
+                "success": True,
+                "message": "Login successful",
+                "user": {
+                    "name": user["name"],
+                    "gender": user["gender"],
+                    "email": user["email"]
+                }
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "message": "User not found. Please sign up first."
+            }, status_code=404)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
 
 
 if __name__ == "__main__":

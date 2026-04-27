@@ -87,6 +87,39 @@ body {
   border: 1px solid var(--border-md);
 }
 
+.auth-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  background: var(--surface2);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-faint);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle-btn:hover:not(.active) {
+  background: var(--surface3);
+  color: var(--text);
+}
+
 .auth-logo {
   text-align: center;
   margin-bottom: 40px;

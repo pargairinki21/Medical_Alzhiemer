@@ -19,18 +19,23 @@
       <div class="stay-subtitle">Clinical Intelligence</div>
     </div>
 
+    <div class="auth-toggle">
+      <button class="toggle-btn active" id="signup-toggle" onclick="toggleAuthMode('signup')">Sign Up</button>
+      <button class="toggle-btn" id="login-toggle" onclick="toggleAuthMode('login')">Login</button>
+    </div>
+
     <div class="auth-form" id="auth-form">
       <div class="form-group">
         <label class="form-label">Email</label>
         <input type="email" class="form-input" id="email-input" placeholder="your@email.com">
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="name-group">
         <label class="form-label">Name</label>
         <input type="text" class="form-input" id="name-input" placeholder="Enter your name">
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="gender-group">
         <label class="form-label">Gender</label>
         <div class="gender-selector">
           <button class="gender-btn" data-gender="male" onclick="selectGender('male')">
