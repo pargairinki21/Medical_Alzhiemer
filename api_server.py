@@ -439,8 +439,7 @@ async def send_otp(request: OTPRequest):
         
         return JSONResponse({
             "success": True,
-            "message": "OTP sent to your email",
-            "otp": otp  # For demo - remove in production
+            "message": "OTP sent to your email"
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending OTP: {str(e)}")

@@ -230,9 +230,8 @@ async function sendOTP() {
       // Show OTP form
       document.getElementById('auth-form').style.display = 'none';
       document.getElementById('otp-form').style.display = 'block';
-
-      // For demo: auto-fill the OTP (remove in production)
-      document.getElementById('otp-input').value = data.otp;
+      document.getElementById('otp-input').value = '';
+      document.getElementById('otp-input').focus();
     } else {
       showToast('Failed to send OTP. Please try again.');
     }
