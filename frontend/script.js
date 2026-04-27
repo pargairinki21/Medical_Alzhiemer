@@ -123,7 +123,7 @@ function showWelcomeAnimation() {
 }
 
 function updateUserAvatar() {
-  const avatarEl = document.querySelector('.user-avatar');
+  const avatarEl = document.getElementById('user-avatar');
   if (avatarEl) {
     if (userData.gender === 'male') {
       avatarEl.textContent = '♂';
@@ -137,9 +137,15 @@ function updateUserAvatar() {
   }
   
   // Update user name
-  const nameEl = document.querySelector('.user-name');
+  const nameEl = document.getElementById('user-name');
   if (nameEl) {
     nameEl.textContent = userData.name;
+  }
+  
+  // Update user email
+  const emailEl = document.getElementById('user-email');
+  if (emailEl) {
+    emailEl.textContent = userData.email;
   }
 }
 
