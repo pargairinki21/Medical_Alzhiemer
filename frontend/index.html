@@ -89,10 +89,13 @@
   <div class="nav-section">
     <div class="nav-label">Main</div>
     <div class="nav-item active" onclick="switchPage('dashboard', this)">
-      <span class="nav-icon">💬</span> Query Agent
+      <span class="nav-icon">💬</span> Clinical Intelligence
     </div>
     <div class="nav-item" onclick="switchPage('analysis', this)">
       <span class="nav-icon">🔬</span> Analysis
+    </div>
+    <div class="nav-item" onclick="switchPage('settings', this)">
+      <span class="nav-icon">⚙️</span> Settings
     </div>
   </div>
 
@@ -110,10 +113,10 @@
 <!-- ═══════════════ MAIN ═══════════════ -->
 <main class="main">
   <div class="topbar">
-    <div class="page-title" id="topbar-title">Clinical <em>Query Agent</em></div>
+    <div class="page-title" id="topbar-title">Clinical Intelligence</div>
     <div class="topbar-right">
       <div class="topbar-icon-btn" title="Feedback">💬</div>
-      <div class="topbar-icon-btn" title="Menu">⋯</div>
+      <div class="topbar-icon-btn" title="Settings" onclick="goToSettings()">⚙️</div>
     </div>
   </div>
 
@@ -126,7 +129,8 @@
         <div class="chat-panel">
           <div class="panel-header">
             <div class="panel-title">
-              🧠 Clinical RAG Agent
+              <img src="assets/ai-bot.png.png" alt="AI bot" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;">
+              Clinical Intelligence
               <span style="font-size:10.5px;color:var(--text-faint);font-weight:400;margin-left:4px;">ClinicalLibrarian + WebResearcher</span>
             </div>
             <span class="status-dot"></span>
@@ -134,7 +138,9 @@
 
           <div class="chat-messages" id="chat-messages">
             <div class="msg">
-              <div class="msg-avatar bot">🧠</div>
+              <div class="msg-avatar bot">
+                <img src="assets/ai-bot.png.png" alt="AI avatar" onerror="this.style.display='none'; this.parentElement.textContent='🧠';">
+              </div>
               <div class="msg-content">
                 <div class="msg-name">NEURORAG AGENT · NOW</div>
                 <div class="msg-bubble">
@@ -174,14 +180,11 @@
           <div style="text-align:center;padding:40px;border:2px dashed var(--border);border-radius:12px;background:var(--surface2);">
             <input type="file" id="f-image" accept="image/*" style="display:none;" onchange="handleImageUploadAuto(this)">
             <div id="upload-placeholder">
-              <div style="font-size:48px;margin-bottom:16px;">🧠</div>
+              <img src="assets/ai-bot.png.png" alt="AI bot" style="width:56px;height:56px;border-radius:14px;object-fit:cover;margin-bottom:16px;">
               <div style="font-size:14px;color:var(--text);margin-bottom:8px;">Drop MRI/Brain scan here</div>
               <div style="font-size:12px;color:var(--text-faint);margin-bottom:16px;">or click to browse</div>
               <button class="upload-btn" onclick="document.getElementById('f-image').click()">
                 📁 Upload Image
-              </button>
-              <button class="upload-btn" onclick="openCamera()">
-                📷 Open Camera
               </button>
             </div>
             <div id="image-preview" style="display:none;">
@@ -190,25 +193,32 @@
                 <button onclick="clearImage()" style="padding:8px 16px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;">✕ Clear</button>
               </div>
             </div>
+            <div class="field-error" id="f-image-error"></div>
           </div>
           
           <div style="margin-top:20px;padding:16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">Optional Clinical Data</div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">Clinical Data (Required)</div>
             <div class="form-row" style="margin-bottom:12px;">
               <div class="form-group">
-                <label class="form-label" style="font-size:11px;">Patient Age</label>
-                <input class="form-input" id="f-age" type="number" placeholder="e.g. 72" min="40" max="100" style="padding:8px;"/>
+                <label class="form-label" style="font-size:11px;">Patient Age <span class="required-star">*</span></label>
+                <input class="form-input" id="f-age" type="number" placeholder="e.g. 72" min="40" max="100" required style="padding:8px;"/>
+                <div class="field-error" id="f-age-error"></div>
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-size:11px;">MMSE Score</label>
-                <input class="form-input" id="f-mmse" type="number" placeholder="e.g. 19" min="0" max="30" style="padding:8px;"/>
+                <label class="form-label" style="font-size:11px;">MMSE Score <span class="required-star">*</span></label>
+                <input class="form-input" id="f-mmse" type="number" placeholder="e.g. 19" min="0" max="30" required style="padding:8px;"/>
+                <div class="field-error" id="f-mmse-error"></div>
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label" style="font-size:11px;">Symptoms</label>
-              <textarea class="form-input" id="f-symptoms" style="min-height:50px;resize:vertical;padding:8px;"
+              <label class="form-label" style="font-size:11px;">Symptoms <span class="required-star">*</span></label>
+              <textarea class="form-input" id="f-symptoms" required style="min-height:50px;resize:vertical;padding:8px;"
                 placeholder="e.g. Memory loss, confusion..."></textarea>
+              <div class="field-error" id="f-symptoms-error"></div>
             </div>
+            <button class="analyze-btn" onclick="runImageAnalysis()" style="margin-top:14px;">
+              Start Test
+            </button>
           </div>
         </div>
 
@@ -222,6 +232,47 @@
         </div>
       </div>
     </div><!-- /analysis -->
+
+    <!-- ══════ SETTINGS ══════ -->
+    <div class="page" id="page-settings">
+      <div class="section-heading">Profile <em>Settings</em> <span class="mini-note">// personalize your account</span></div>
+
+      <div class="settings-card">
+        <div class="settings-grid">
+          <div class="settings-avatar-wrap">
+            <div class="settings-avatar-preview" id="settings-avatar-preview">?</div>
+            <button class="upload-btn" onclick="document.getElementById('settings-image-input').click()">
+              Upload Profile Image
+            </button>
+            <input type="file" id="settings-image-input" accept="image/*" style="display:none;" onchange="handleProfileImageUpload(this)">
+          </div>
+
+          <div>
+            <div class="form-group">
+              <label class="form-label">Name</label>
+              <input class="form-input" id="settings-name" type="text" placeholder="Your full name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email ID</label>
+              <input class="form-input" id="settings-email" type="email" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select class="form-input" id="settings-gender">
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:8px;">
+              <button class="analyze-btn" style="margin-top:0;" onclick="saveProfileSettings()">Save Profile</button>
+              <button class="upload-btn" onclick="loadProfileSettings()">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /settings -->
 
   </div><!-- /content -->
 </main>

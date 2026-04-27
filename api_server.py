@@ -6,13 +6,16 @@ Provides API endpoints for RAG queries, authentication, and MRI analysis
 ─────────────────────────────────────────────────────────────
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os
 import base64
 import random
+import uuid
+from pathlib import Path
 import config
 
 from loader import load_and_split
@@ -24,6 +27,9 @@ import google.generativeai as genai
 
 # Initialize FastAPI app
 app = FastAPI(title="Alzheimer's Clinical RAG API", version="1.0.0")
+PROFILE_UPLOAD_DIR = Path("uploaded_profiles")
+PROFILE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(PROFILE_UPLOAD_DIR)), name="uploads")
 
 # Add CORS middleware (allow frontend from Vercel)
 app.add_middleware(
@@ -73,6 +79,55 @@ class OTPVerifyRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    current_email: str
+    email: str
+    name: str
+    gender: str
+    profile_image: str = ""
+
+
+def _build_profile_image_url(raw_value: str, request: Request) -> str:
+    """Return image URL usable by frontend while keeping DB small."""
+    if not raw_value:
+        return ""
+    if raw_value.startswith("http://") or raw_value.startswith("https://") or raw_value.startswith("data:"):
+        return raw_value
+    if raw_value.startswith("/uploads/"):
+        return str(request.base_url).rstrip("/") + raw_value
+    return raw_value
+
+
+def _save_profile_image_if_needed(image_value: str) -> str:
+    """
+    Convert incoming base64 data URL to stored file path.
+    Returns DB value (path/url), not full absolute URL.
+    """
+    if not image_value:
+        return ""
+    if image_value.startswith("http://") or image_value.startswith("https://") or image_value.startswith("/uploads/"):
+        return image_value
+    if not image_value.startswith("data:image/"):
+        return image_value
+
+    header, b64_data = image_value.split(",", 1)
+    ext = "png"
+    if "image/jpeg" in header:
+        ext = "jpg"
+    elif "image/webp" in header:
+        ext = "webp"
+    elif "image/gif" in header:
+        ext = "gif"
+
+    image_bytes = base64.b64decode(b64_data)
+    filename = f"profile_{uuid.uuid4().hex}.{ext}"
+    file_path = PROFILE_UPLOAD_DIR / filename
+    with open(file_path, "wb") as f:
+        f.write(image_bytes)
+
+    return f"/uploads/{filename}"
 
 
 def setup_pipeline():
@@ -392,7 +447,7 @@ async def send_otp(request: OTPRequest):
 
 
 @app.post("/api/verify-otp")
-async def verify_otp(request: OTPVerifyRequest):
+async def verify_otp(request: OTPVerifyRequest, http_request: Request):
     """
     Verify OTP against MongoDB
     """
@@ -409,7 +464,8 @@ async def verify_otp(request: OTPVerifyRequest):
                 "user": {
                     "name": user["name"],
                     "gender": user["gender"],
-                    "email": user["email"]
+                    "email": user["email"],
+                    "profile_image": _build_profile_image_url(user.get("profile_image", ""), http_request)
                 }
             })
         else:
@@ -422,7 +478,7 @@ async def verify_otp(request: OTPVerifyRequest):
 
 
 @app.post("/api/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, http_request: Request):
     """
     Direct login for existing users (no OTP required)
     """
@@ -440,7 +496,8 @@ async def login(request: LoginRequest):
                 "user": {
                     "name": user["name"],
                     "gender": user["gender"],
-                    "email": user["email"]
+                    "email": user["email"],
+                    "profile_image": _build_profile_image_url(user.get("profile_image", ""), http_request)
                 }
             })
         else:
@@ -450,6 +507,50 @@ async def login(request: LoginRequest):
             }, status_code=404)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+
+@app.post("/api/profile/update")
+async def update_profile(request: ProfileUpdateRequest, http_request: Request):
+    """
+    Update user's profile in MongoDB (name, email, gender, profile image)
+    """
+    try:
+        if not db:
+            raise HTTPException(status_code=503, detail="Database not available")
+
+        stored_profile_image = _save_profile_image_if_needed(request.profile_image or "")
+
+        user = db.update_user_profile(
+            current_email=request.current_email,
+            name=request.name.strip(),
+            gender=request.gender.strip(),
+            new_email=request.email.strip(),
+            profile_image=stored_profile_image
+        )
+
+        if not user:
+            return JSONResponse({
+                "success": False,
+                "message": "User not found"
+            }, status_code=404)
+
+        return JSONResponse({
+            "success": True,
+            "message": "Profile updated successfully",
+            "user": {
+                "name": user["name"],
+                "gender": user["gender"],
+                "email": user["email"],
+                "profile_image": _build_profile_image_url(user.get("profile_image", ""), http_request)
+            }
+        })
+    except ValueError as ve:
+        return JSONResponse({
+            "success": False,
+            "message": str(ve)
+        }, status_code=400)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
 
 
 if __name__ == "__main__":

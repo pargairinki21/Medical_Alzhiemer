@@ -72,6 +72,7 @@ class Database:
             "email": email,
             "name": name,
             "gender": gender,
+            "profile_image": "",
             "created_at": datetime.utcnow(),
             "last_login": datetime.utcnow()
         }
@@ -82,6 +83,7 @@ class Database:
                 self.demo_users[email].update({
                     "name": name,
                     "gender": gender,
+                    "profile_image": self.demo_users[email].get("profile_image", ""),
                     "last_login": datetime.utcnow()
                 })
                 return self.demo_users[email]
@@ -107,6 +109,53 @@ class Database:
             return self.demo_users.get(email)
         else:
             return self.users_collection.find_one({"email": email})
+
+    def update_user_profile(self, current_email, name, gender, new_email=None, profile_image=""):
+        """Update user profile details and optional email/profile image"""
+        target_email = (new_email or current_email).strip()
+
+        if self.demo_mode:
+            user = self.demo_users.get(current_email)
+            if not user:
+                return None
+
+            # If email changed, move key
+            if target_email != current_email:
+                self.demo_users[target_email] = user
+                del self.demo_users[current_email]
+                user = self.demo_users[target_email]
+
+            user.update({
+                "email": target_email,
+                "name": name,
+                "gender": gender,
+                "profile_image": profile_image or "",
+                "last_login": datetime.utcnow()
+            })
+            return user
+
+        # Mongo mode
+        user = self.users_collection.find_one({"email": current_email})
+        if not user:
+            return None
+
+        # Prevent duplicate email if changing to one that already exists
+        if target_email != current_email:
+            existing = self.users_collection.find_one({"email": target_email})
+            if existing:
+                raise ValueError("Email already exists")
+
+        self.users_collection.update_one(
+            {"email": current_email},
+            {"$set": {
+                "email": target_email,
+                "name": name,
+                "gender": gender,
+                "profile_image": profile_image or "",
+                "last_login": datetime.utcnow()
+            }}
+        )
+        return self.users_collection.find_one({"email": target_email})
     
     def generate_otp(self, email):
         """Generate and store OTP"""

@@ -7,14 +7,122 @@
 // const API_BASE_URL = 'http://localhost:8000';
 const API_BASE_URL = 'https://medical-alzhiemer.onrender.com';
 
+// Avatar images (recommended location: frontend/assets/)
+const AVATAR_PATHS = {
+  female: 'assets/female-clinician.png',
+  male: 'assets/male-clinician.png',
+  bot: 'assets/ai-bot.png.png',
+};
+
 // ── Authentication ──────────────────────────────────────
 let selectedGender = null;
 let authMode = 'signup'; // 'signup' or 'login'
 let userData = {
   email: '',
   name: '',
-  gender: ''
+  gender: '',
+  profileImage: ''
 };
+
+let typingAudioContext = null;
+let typingSoundInterval = null;
+
+function ensureToastRoot() {
+  let toastRoot = document.getElementById('toast-root');
+  if (!toastRoot) {
+    toastRoot = document.createElement('div');
+    toastRoot.id = 'toast-root';
+    document.body.appendChild(toastRoot);
+  }
+  return toastRoot;
+}
+
+function showToast(message, type = 'error') {
+  const toastRoot = ensureToastRoot();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toastRoot.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 220);
+  }, 2600);
+}
+
+function setFieldError(fieldId, message) {
+  const errorEl = document.getElementById(`${fieldId}-error`);
+  const inputEl = document.getElementById(fieldId);
+  if (errorEl) errorEl.textContent = message || '';
+  if (inputEl) {
+    inputEl.style.borderColor = message ? '#dc2626' : '';
+    inputEl.style.boxShadow = message ? '0 0 0 3px rgba(220, 38, 38, 0.12)' : '';
+  }
+}
+
+function clearAnalysisFieldErrors() {
+  setFieldError('f-image', '');
+  setFieldError('f-age', '');
+  setFieldError('f-mmse', '');
+  setFieldError('f-symptoms', '');
+}
+
+function getClinicianAvatarHTML() {
+  if (userData.gender === 'female') {
+    return `<img src="${AVATAR_PATHS.female}" alt="Female clinician avatar" onerror="this.style.display='none'; this.parentElement.textContent='👩';">`;
+  }
+  if (userData.gender === 'male') {
+    return `<img src="${AVATAR_PATHS.male}" alt="Male clinician avatar" onerror="this.style.display='none'; this.parentElement.textContent='👨';">`;
+  }
+  return '👤';
+}
+
+function getBotAvatarHTML() {
+  return `<img src="${AVATAR_PATHS.bot}" alt="AI avatar" onerror="this.style.display='none'; this.parentElement.textContent='🤖';">`;
+}
+
+function startTypingSound() {
+  stopTypingSound();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+
+  try {
+    typingAudioContext = new AudioCtx();
+
+    const playPulse = () => {
+      if (!typingAudioContext || typingAudioContext.state === 'closed') return;
+      const osc = typingAudioContext.createOscillator();
+      const gain = typingAudioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, typingAudioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.02, typingAudioContext.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, typingAudioContext.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(typingAudioContext.destination);
+      osc.start();
+      osc.stop(typingAudioContext.currentTime + 0.09);
+    };
+
+    playPulse();
+    typingSoundInterval = setInterval(playPulse, 320);
+  } catch (err) {
+    console.warn('Typing sound unavailable:', err);
+  }
+}
+
+function stopTypingSound() {
+  if (typingSoundInterval) {
+    clearInterval(typingSoundInterval);
+    typingSoundInterval = null;
+  }
+  if (typingAudioContext) {
+    typingAudioContext.close().catch(() => {});
+    typingAudioContext = null;
+  }
+}
 
 function selectGender(gender) {
   console.log('selectGender called with:', gender);
@@ -59,12 +167,12 @@ async function sendOTP() {
   const name = document.getElementById('name-input').value;
 
   if (!email) {
-    alert('Please enter your email');
+    showToast('Please enter your email.');
     return;
   }
 
   if (authMode === 'signup' && (!name || !selectedGender)) {
-    alert('Please fill in all fields and select a gender');
+    showToast('Please fill all fields and select a gender.');
     return;
   }
 
@@ -90,15 +198,16 @@ async function sendOTP() {
         userData.name = data.user.name;
         userData.gender = data.user.gender;
         userData.email = data.user.email;
+        userData.profileImage = data.user.profile_image || '';
 
         // Show welcome animation
         showWelcomeAnimation();
       } else {
-        alert(data.message || 'Login failed. Please try again.');
+        showToast(data.message || 'Login failed. Please try again.');
       }
     } catch (error) {
       console.error('Error during login:', error);
-      alert('Error during login. Please try again.');
+      showToast('Error during login. Please try again.');
     }
     return;
   }
@@ -125,11 +234,11 @@ async function sendOTP() {
       // For demo: auto-fill the OTP (remove in production)
       document.getElementById('otp-input').value = data.otp;
     } else {
-      alert('Failed to send OTP. Please try again.');
+      showToast('Failed to send OTP. Please try again.');
     }
   } catch (error) {
     console.error('Error sending OTP:', error);
-    alert('Error sending OTP. Please try again.');
+    showToast('Error sending OTP. Please try again.');
   }
 }
 
@@ -150,15 +259,16 @@ async function verifyOTP() {
       userData.name = data.user.name;
       userData.gender = data.user.gender;
       userData.email = data.user.email;
+      userData.profileImage = data.user.profile_image || '';
       
       // Show welcome animation
       showWelcomeAnimation();
     } else {
-      alert('Invalid or expired OTP. Please try again.');
+      showToast('Invalid or expired OTP. Please try again.');
     }
   } catch (error) {
     console.error('Error verifying OTP:', error);
-    alert('Error verifying OTP. Please try again.');
+    showToast('Error verifying OTP. Please try again.');
   }
 }
 
@@ -176,6 +286,7 @@ function showWelcomeAnimation() {
   
   // Update user avatar in sidebar
   updateUserAvatar();
+  loadProfileSettings();
   
   // Hide welcome and show main app after animation
   setTimeout(() => {
@@ -187,7 +298,9 @@ function showWelcomeAnimation() {
 function updateUserAvatar() {
   const avatarEl = document.getElementById('user-avatar');
   if (avatarEl) {
-    if (userData.gender === 'male') {
+    if (userData.profileImage) {
+      avatarEl.innerHTML = `<img src="${userData.profileImage}" alt="Profile image">`;
+    } else if (userData.gender === 'male') {
       avatarEl.textContent = '♂';
     } else if (userData.gender === 'female') {
       avatarEl.textContent = '♀';
@@ -209,13 +322,27 @@ function updateUserAvatar() {
   if (emailEl) {
     emailEl.textContent = userData.email;
   }
+
+  const previewEl = document.getElementById('settings-avatar-preview');
+  if (previewEl) {
+    if (userData.profileImage) {
+      previewEl.innerHTML = `<img src="${userData.profileImage}" alt="Profile image">`;
+    } else if (userData.gender === 'male') {
+      previewEl.textContent = '♂';
+    } else if (userData.gender === 'female') {
+      previewEl.textContent = '♀';
+    } else {
+      previewEl.textContent = userData.name?.[0]?.toUpperCase() || '?';
+    }
+  }
 }
 
 // ── Page Navigation ──────────────────────────────────────
 const PAGE_TITLES = {
-  dashboard: 'Clinical <em>Query Agent</em>',
-  chat:      'Query <em>Agent</em>',
+  dashboard: 'Clinical Intelligence',
+  chat:      'Clinical Intelligence',
   analysis:  'MRI Image <em>Analysis</em>',
+  settings:  'Profile <em>Settings</em>',
 };
 
 function switchPage(id, el) {
@@ -227,6 +354,86 @@ function switchPage(id, el) {
 
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.innerHTML = PAGE_TITLES[id] || id;
+
+  if (id === 'settings') {
+    loadProfileSettings();
+  }
+}
+
+function goToSettings() {
+  switchPage('settings');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const settingsNav = Array.from(document.querySelectorAll('.nav-item'))
+    .find((node) => node.textContent.includes('Settings'));
+  if (settingsNav) settingsNav.classList.add('active');
+}
+
+function loadProfileSettings() {
+  const nameEl = document.getElementById('settings-name');
+  const emailEl = document.getElementById('settings-email');
+  const genderEl = document.getElementById('settings-gender');
+
+  if (nameEl) nameEl.value = userData.name || '';
+  if (emailEl) emailEl.value = userData.email || '';
+  if (genderEl) genderEl.value = userData.gender || '';
+  updateUserAvatar();
+}
+
+function handleProfileImageUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    userData.profileImage = e.target.result;
+    updateUserAvatar();
+    showToast('Profile image updated.', 'success');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function saveProfileSettings() {
+  const nameEl = document.getElementById('settings-name');
+  const emailEl = document.getElementById('settings-email');
+  const genderEl = document.getElementById('settings-gender');
+
+  const name = nameEl?.value?.trim();
+  const email = emailEl?.value?.trim();
+  const gender = genderEl?.value;
+
+  if (!name || !email || !gender) {
+    showToast('Please fill name, email, and gender.');
+    return;
+  }
+
+  const previousEmail = userData.email;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        current_email: previousEmail,
+        email: email,
+        name: name,
+        gender: gender,
+        profile_image: userData.profileImage || ''
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Failed to update profile');
+    }
+
+    userData.name = data.user.name;
+    userData.email = data.user.email;
+    userData.gender = data.user.gender;
+    userData.profileImage = data.user.profile_image || '';
+    updateUserAvatar();
+    showToast('Profile updated successfully.', 'success');
+  } catch (error) {
+    console.error('Profile update error:', error);
+    showToast(error.message || 'Failed to update profile.');
+  }
 }
 
 function toggleFilter(btn) {
@@ -276,14 +483,15 @@ function buildBotHTML(data) {
   return html;
 }
 
-function appendMsg(avatar, name, contentHTML, isUser = false) {
+function appendMsg(avatar, name, contentHTML, isUser = false, isThinking = false) {
   const msgs = document.getElementById('chat-messages');
   if (!msgs) return; // Handle case where chat messages element doesn't exist
   
   const div  = document.createElement('div');
   div.className = 'msg' + (isUser ? ' user' : '');
+  const avatarClass = `msg-avatar ${isUser ? 'user' : 'bot'}${isThinking ? ' thinking' : ''}`;
   div.innerHTML = `
-    <div class="msg-avatar ${isUser ? 'user' : 'bot'}">${avatar}</div>
+    <div class="${avatarClass}">${avatar}</div>
     <div class="msg-content">
       <div class="msg-name">${name}</div>
       ${contentHTML}
@@ -294,14 +502,15 @@ function appendMsg(avatar, name, contentHTML, isUser = false) {
 }
 
 function showTyping() {
-  return appendMsg('🧠', 'NEURORAG AGENT · NOW',
+  startTypingSound();
+  return appendMsg(getBotAvatarHTML(), 'NEURORAG AGENT · NOW',
     `<div class="msg-bubble">
       <div class="typing-indicator">
         <div class="typing-dot"></div>
         <div class="typing-dot"></div>
         <div class="typing-dot"></div>
       </div>
-    </div>`);
+    </div>`, false, true);
 }
 
 async function sendMessage() {
@@ -317,7 +526,7 @@ async function sendMessage() {
   if (sug) sug.style.display = 'none';
 
   // User msg
-  appendMsg('👤', 'CLINICIAN · NOW',
+  appendMsg(getClinicianAvatarHTML(), 'CLINICIAN · NOW',
     `<div class="msg-bubble">${q}</div>`, true);
 
   // Typing
@@ -340,16 +549,18 @@ async function sendMessage() {
     const data = await response.json();
     
     typing.remove();
+    stopTypingSound();
 
     // Parse the response and display it
     // For now, display the raw response as formatted text
     const formattedResponse = formatRAGResponse(data.response);
-    appendMsg('🧠', 'NEURORAG AGENT · NOW', formattedResponse);
+    appendMsg(getBotAvatarHTML(), 'NEURORAG AGENT · NOW', formattedResponse);
     
   } catch (error) {
     typing.remove();
+    stopTypingSound();
     console.error('Error:', error);
-    appendMsg('🧠', 'NEURORAG AGENT · NOW',
+    appendMsg(getBotAvatarHTML(), 'NEURORAG AGENT · NOW',
       `<div class="msg-bubble" style="color:var(--red);">
         ⚠️ Error connecting to RAG system: ${error.message}
       </div>`);
@@ -364,9 +575,6 @@ function formatRAGResponse(response) {
   
   // Bold: **text** -> <strong>text</strong>
   formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  
-  // Italic: *text* -> <em>text</em>
-  formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
   
   // Format the RAG response as HTML
   const lines = formatted.split('\n');
@@ -394,9 +602,10 @@ function formatRAGResponse(response) {
       }
       html += `<div style="margin-top:12px;"><strong>${line}</strong></div>`;
       inSection = false;
-    } else if (line.startsWith('-') || line.startsWith('•')) {
-      // Bullet points
-      currentSection += `<div style="margin-left:20px;">• ${line.substring(1).trim()}</div>`;
+    } else if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
+      // Render list text without bullet markers
+      const cleanedLine = line.replace(/^[*•-]\s*/, '').trim();
+      currentSection += `<div style="margin-left:20px;">${cleanedLine}</div>`;
     } else {
       currentSection += `<div>${line}</div>`;
     }
@@ -444,9 +653,7 @@ function handleImageUploadAuto(input) {
       img.src = uploadedImageData;
       placeholder.style.display = 'none';
       preview.style.display = 'block';
-      
-      // Automatically trigger analysis
-      runImageAnalysis();
+      setFieldError('f-image', '');
     };
     
     reader.readAsDataURL(file);
@@ -488,6 +695,7 @@ function clearImage() {
   const content = document.getElementById('result-content');
   if (empty) empty.style.display = 'block';
   if (content) content.style.display = 'none';
+  setFieldError('f-image', '');
 }
 
 function getSeverity(mmse) {
@@ -498,22 +706,42 @@ function getSeverity(mmse) {
 }
 
 async function runImageAnalysis() {
+  clearAnalysisFieldErrors();
+
   if (!uploadedImageData) {
-    alert('Please upload an image first.');
+    setFieldError('f-image', 'Please upload an image.');
     return;
   }
 
-  // Get optional clinical data
+  // Get required clinical data
   const age = document.getElementById('f-age')?.value;
   const mmse = document.getElementById('f-mmse')?.value;
   const symptoms = document.getElementById('f-symptoms')?.value;
+
+  let hasError = false;
+  if (!age) {
+    setFieldError('f-age', 'Patient age is required.');
+    hasError = true;
+  }
+  if (!mmse) {
+    setFieldError('f-mmse', 'MMSE score is required.');
+    hasError = true;
+  }
+  if (!symptoms || !symptoms.trim()) {
+    setFieldError('f-symptoms', 'Symptoms are required.');
+    hasError = true;
+  }
+
+  if (hasError) {
+    return;
+  }
 
   // Show loading state
   const empty = document.getElementById('result-empty');
   const content = document.getElementById('result-content');
   if (empty) empty.style.display = 'none';
   if (content) {
-    content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">🔬 Analyzing brain scan...</div>';
+    content.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">🔬 Running test and analyzing brain scan...</div>';
     content.style.display = 'block';
   }
 
@@ -566,7 +794,7 @@ async function runAnalysis() {
   const symptoms = document.getElementById('f-symptoms')?.value;
 
   if (!age && !mmse && !moca && !uploadedImageData) {
-    alert('Please enter at least age, a cognitive score, or upload an MRI image.');
+    showToast('Please enter age, cognitive score, or upload an MRI image.');
     return;
   }
 
@@ -646,4 +874,12 @@ function animateScaleBars() {
 // ── Init ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   animateScaleBars();
+
+  const ageEl = document.getElementById('f-age');
+  const mmseEl = document.getElementById('f-mmse');
+  const symptomsEl = document.getElementById('f-symptoms');
+
+  ageEl?.addEventListener('input', () => setFieldError('f-age', ''));
+  mmseEl?.addEventListener('input', () => setFieldError('f-mmse', ''));
+  symptomsEl?.addEventListener('input', () => setFieldError('f-symptoms', ''));
 });
