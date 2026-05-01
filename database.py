@@ -161,7 +161,7 @@ class Database:
         """Generate and store OTP"""
         otp = str(random.randint(100000, 999999))
         expires_at = datetime.utcnow() + timedelta(minutes=5)
-        
+
         otp_data = {
             "email": email,
             "otp": otp,
@@ -169,17 +169,20 @@ class Database:
             "created_at": datetime.utcnow(),
             "used": False
         }
-        
+
         if self.demo_mode:
             # Demo mode: use in-memory storage
             self.demo_otps[email] = otp_data
         else:
             # MongoDB mode
             self.otps_collection.insert_one(otp_data)
-        
-        # Send OTP via email
-        self.send_email_otp(email, otp)
-        
+
+        # Send OTP via email in background thread (non-blocking)
+        import threading
+        email_thread = threading.Thread(target=self.send_email_otp, args=(email, otp))
+        email_thread.daemon = True
+        email_thread.start()
+
         return otp
     
     def send_email_otp(self, email, otp):
