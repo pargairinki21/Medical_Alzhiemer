@@ -4,8 +4,8 @@
 // ═══════════════════════════════════════════
 
 // Backend API URL (change this to your deployed backend URL)
-// const API_BASE_URL = 'http://localhost:8000';
-const API_BASE_URL = 'https://medical-alzhiemer.onrender.com';
+const API_BASE_URL = 'http://localhost:8000';
+// const API_BASE_URL = 'https://medical-alzhiemer.onrender.com';
 
 // Avatar images (recommended location: frontend/assets/)
 const AVATAR_PATHS = {
